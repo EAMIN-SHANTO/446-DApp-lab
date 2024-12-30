@@ -3,114 +3,104 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Health System Interface</title>
-  <script src="f.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-    }
-    
-    h1, h2 {
-      text-align: center;
-    }
-    
-    .form-container {
-      margin: 20px auto;
-      padding: 20px;
-      border: 1px solid #ccc;
-      max-width: 400px;
-    }
-    
-    label, input, select, textarea, button {
-      display: block;
-      width: 100%;
-      margin-bottom: 10px;
-    }
-    
-    button {
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      padding: 10px;
-    }
-  </style>
+  <title>Patient Management System</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/truffle-contract/4.0.31/truffle-contract.min.js"></script>
+  <script src="app.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
 </head>
 <body>
-  <h1>Health System Interface</h1>
-  
-  <!-- Doctor Registration Form -->
-  <div class="form-container">
-    <h2>Doctor Registration</h2>
-    <form id="doctorRegistrationForm">
-      <label for="adminId">Admin ID:</label>
-      <input type="text" id="adminId" name="adminId" required>
-      <label for="doctorId">Doctor ID:</label>
-      <input type="text" id="doctorId" name="doctorId" required>
-      <button type="submit">Register Doctor</button>
-    </form>
-  </div>
-  
-  <!-- Patient Registration Form -->
-  <div class="form-container">
-    <h2>Patient Registration</h2>
-    <form id="patientRegistrationForm">
-      <label for="patientId">Patient ID:</label>
-      <input type="text" id="patientId" name="patientId" required>
-      <label for="age">Age:</label>
-      <input type="number" id="age" name="age" required>
-      <label for="gender">Gender:</label>
-      <input type="text" id="gender" name="gender" required>
-      <label for="district">District:</label>
-      <input type="text" id="district" name="district" required>
-      <label for="symptoms">Symptoms Details:</label>
-      <textarea id="symptoms" name="symptoms" required></textarea>
-      <button type="submit">Register Patient</button>
-    </form>
+  <div class="container mt-4">
+    <h1 class="text-center">Patient Management System</h1>
+    <p id="accountAddress" class="text-center">Your Account: Loading...</p>
+
+    <div id="loader-msg" class="text-danger text-center"></div>
+
+    <div id="content">
+      <div class="row">
+        <div class="col-md-6">
+          <h3>Register Doctor</h3>
+          <form id="registerDoctorForm">
+            <div class="mb-3">
+              <label for="doctorIdInput" class="form-label">Doctor ID</label>
+              <input type="number" id="doctorIdInput" class="form-control" required>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="App.registerDoctor()">Register Doctor</button>
+          </form>
+        </div>
+        <div class="col-md-6">
+          <h3>Update Patient Data</h3>
+          <form id="updatePatientForm">
+            <div class="mb-3">
+              <label for="patientId" class="form-label">Patient ID</label>
+              <input type="number" id="patientId" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label for="vaccineStatus" class="form-label">Vaccine Status</label>
+              <select id="vaccineStatus" class="form-select" required>
+                <option value="0">Not Vaccinated</option>
+                <option value="1">One Dose</option>
+                <option value="2">Two Doses</option>
+              </select>
+            </div>
+            <div class="form-check">
+              <input type="checkbox" id="isDead" class="form-check-input">
+              <label for="isDead" class="form-check-label">Mark as Deceased</label>
+            </div>
+            <button type="button" class="btn btn-primary mt-2" onclick="App.updatePatientData()">Update Patient</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="row mt-4">
+        <div class="col-md-6">
+          <h3>Book Appointment</h3>
+          <form id="bookAppointmentForm">
+            <div class="mb-3">
+              <label for="doctorId" class="form-label">Doctor ID</label>
+              <input type="number" id="doctorId" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label for="slotIndex" class="form-label">Slot Index (0-9)</label>
+              <input type="number" id="slotIndex" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label for="charge" class="form-label">Charge (ETH)</label>
+              <input type="number" id="charge" class="form-control" required>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="App.bookAppointment()">Book Appointment</button>
+          </form>
+        </div>
+        <div class="col-md-6">
+          <h3>Patients List</h3>
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Age</th>
+                <th>Gender</th>
+                <th>District</th>
+              </tr>
+            </thead>
+            <tbody id="patientList">
+              <!-- Dynamic Content -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="loader" style="display: none;" class="text-center">
+      <p>Loading data...</p>
+    </div>
   </div>
 
-  <!-- Data Update Form (Admin Only) -->
-  <div class="form-container">
-    <h2>Update Patient Information</h2>
-    <form id="updateForm">
-      <label for="patientIdUpdate">Patient ID:</label>
-      <input type="text" id="patientIdUpdate" name="patientId" required>
-      <label for="adminIdUpdate">Admin ID:</label>
-      <input type="text" id="adminIdUpdate" name="adminId" required>
-      <label for="vaccineStatus">Vaccine Status:</label>
-      <select id="vaccineStatus" name="vaccineStatus" required>
-        <option value="not vaccinated">Not vaccinated</option>
-        <option value="one dose">One dose</option>
-        <option value="two dose">Two dose</option>
-      </select>
-      <label for="isDeceased">Is Patient Deceased:</label>
-      <select id="isDeceased" name="isDeceased" required>
-        <option value="no">No</option>
-        <option value="yes">Yes</option>
-      </select>
-      <button type="submit">Update</button>
-      <div id="updateMessage"></div>
-    </form>
-  </div>
-  
-  <!-- Doctor Appointments Section -->
-  <div class="form-container">
-    <h2>Doctor Appointments</h2>
-    <form id="doctorAppointmentsForm">
-      <label for="doctorIdAppointments">Doctor ID:</label>
-      <input type="text" id="doctorIdAppointments" name="doctorId" required>
-      <button type="submit">View Appointments</button>
-    </form>
-    <div id="appointmentsList"></div>
-  </div>
-  
-  <!-- Covid Trend Table Section -->
-  <div class="form-container">
-    <h2>Covid Trend Table</h2>
-    <button onclick="showCovidTrend()">Show Covid Trend</button>
-    <div id="covidTrendTable"></div>
-  </div>
-
-  <script src="scripts.js"></script>
+  <script>
+    $(document).ready(() => {
+      App.initWeb();
+    });
+  </script>
 </body>
 </html>

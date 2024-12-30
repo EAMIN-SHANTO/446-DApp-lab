@@ -5,37 +5,38 @@ App = {
 
   initWeb: async function () {
     if (window.ethereum) {
-      // Modern dapp browsers with MetaMask
       App.webProvider = new Web3(window.ethereum);
       try {
+        // Request account access if needed
         await window.ethereum.request({ method: 'eth_requestAccounts' });
+  
+        // Fetch and set accounts
+        const accounts = await App.webProvider.eth.getAccounts();
+        if (accounts.length === 0) {
+          alert('No accounts found. Please connect your MetaMask account.');
+          return;
+        }
+        App.account = accounts[0];
+        $("#accountAddress").html(`Connected Account: ${App.account}`);
       } catch (error) {
-        console.error("User denied account access");
-        $("#loader-msg").html('User denied account access to Ethereum provider');
+        console.error("Error connecting to MetaMask:", error);
+        alert('Please allow MetaMask to connect to this site.');
         return;
       }
-    } else if (window.web3) {
-      // Legacy dapp browsers
-      App.webProvider = new Web3(window.web3.currentProvider);
     } else {
-      // Non-dapp browsers
-      $("#loader-msg").html('No Ethereum provider found. Install MetaMask.');
-      App.webProvider = new Web3(new Web3.providers.HttpProvider('http://localhost:8586'));
+      alert('MetaMask is not detected. Please install MetaMask and try again.');
+      return;
     }
     return App.initContract();
   },
+  
 
-  initContract: async function () {
-    try {
-      const response = await $.getJSON("PatientManagement.json");
-      App.contracts.PatientManagement = TruffleContract(response);
-      App.contracts.PatientManagement.setProvider(App.webProvider.currentProvider);
-      App.contractInstance = await App.contracts.PatientManagement.deployed();
-      return App.render();
-    } catch (error) {
-      console.error("Error loading contract:", error);
-      $("#loader-msg").html('Failed to load contract.');
-    }
+  listenForEvents: async function () {
+    const contractInstance = await App.contracts.patientManagement.deployed();
+    contractInstance.allEvents({}, { fromBlock: 0, toBlock: "latest" }).on("data", function (event) {
+      console.log("Event triggered:", event);
+      App.render(); // Reload the app UI whenever an event is triggered
+    });
   },
 
   render: async function () {
@@ -44,79 +45,87 @@ App = {
     loader.show();
     content.hide();
 
-    try {
-      const accounts = await App.webProvider.eth.getAccounts();
-      App.account = accounts[0];
-      $("#accountAddress").html(`Your Account: ${App.account}`);
-
-      const userCount = await App.contractInstance.userCount();
-      const patientList = $("#patientList");
-      patientList.empty();
-
-      for (let i = 1; i <= userCount; i++) {
-        const patientDetails = await App.contractInstance.getPatientDetails(i);
-        const detailsArray = patientDetails.split(",");
-        const template = `
-          <tr>
-            <td>${detailsArray[0]}</td>
-            <td>${detailsArray[1]}</td>
-            <td>${detailsArray[2]}</td>
-            <td>${detailsArray[3]}</td>
-            <td>${detailsArray[4]}</td>
-          </tr>`;
-        patientList.append(template);
+    // Connect MetaMask wallet
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        App.account = accounts[0];
+        $("#accountAddress").html(`Connected Account: ${App.account}`);
+      } catch (error) {
+        console.error("User denied account access:", error);
+        $("#accountAddress").html("Account not connected.");
+        return;
       }
-      loader.hide();
-      content.show();
+    }
+
+    // Load contract instance
+    const contractInstance = await App.contracts.patientManagement.deployed();
+
+    // Fetch user count and display it
+    const userCount = await contractInstance.userCount();
+    $("#userCount").html(`Total Registered Users: ${userCount.toString()}`);
+
+    // Display all patients
+    const patientResults = $("#patientResults");
+    patientResults.empty();
+    for (let i = 1; i <= userCount; i++) {
+      const patient = await contractInstance.patients(i);
+      const user = await contractInstance.users(patient.userAddress);
+      const vaccineStatus = await contractInstance.getVaccineStatusString(patient.vaccineStatus);
+
+      const patientRow = `<tr>
+        <td>${patient.id}</td>
+        <td>${user.name}</td>
+        <td>${user.age}</td>
+        <td>${user.gender}</td>
+        <td>${user.district}</td>
+        <td>${vaccineStatus}</td>
+        <td>${patient.isDead ? "Yes" : "No"}</td>
+      </tr>`;
+      patientResults.append(patientRow);
+    }
+
+    loader.hide();
+    content.show();
+  },
+
+  registerPatient: async function () {
+    const contractInstance = await App.contracts.patientManagement.deployed();
+
+    // Get patient details from form inputs
+    const patientId = $("#patientId").val();
+    const name = $("#name").val();
+    const age = $("#age").val();
+    const gender = $("#gender").val();
+    const district = $("#district").val();
+    const symptomsDetails = $("#symptomsDetails").val();
+
+    // Call registerPatients function in the smart contract
+    try {
+      await contractInstance.registerPatients(patientId, name, age, gender, district, symptomsDetails, { from: App.account });
+      alert("Patient registered successfully!");
+      App.render();
     } catch (error) {
-      console.error("Error rendering page:", error);
-      $("#loader-msg").html('Error loading data.');
+      console.error("Error registering patient:", error);
     }
   },
 
   bookAppointment: async function () {
+    const contractInstance = await App.contracts.patientManagement.deployed();
+
+    // Get appointment details from form inputs
     const doctorId = $("#doctorId").val();
     const slotIndex = $("#slotIndex").val();
+    const patientId = $("#patientId").val();
     const charge = $("#charge").val();
 
+    // Call bookAppointment function in the smart contract
     try {
-      await App.contractInstance.bookAppointment(doctorId, slotIndex, charge, {
-        from: App.account,
-        value: Web3.utils.toWei(charge, "ether"),
-      });
+      await contractInstance.bookAppointment(doctorId, slotIndex, patientId, charge, { from: App.account, value: charge });
       alert("Appointment booked successfully!");
       App.render();
     } catch (error) {
       console.error("Error booking appointment:", error);
-      alert("Failed to book appointment.");
-    }
-  },
-
-  registerDoctor: async function () {
-    const doctorId = $("#doctorIdInput").val();
-
-    try {
-      await App.contractInstance.registerDoctor(1, doctorId, { from: App.account }); // Assuming `1` is the admin ID.
-      alert("Doctor registered successfully!");
-      App.render();
-    } catch (error) {
-      console.error("Error registering doctor:", error);
-      alert("Failed to register doctor.");
-    }
-  },
-
-  updatePatientData: async function () {
-    const patientId = $("#patientId").val();
-    const vaccineStatus = parseInt($("#vaccineStatus").val());
-    const isDead = $("#isDead").is(":checked");
-
-    try {
-      await App.contractInstance.updatePatientData(1, patientId, vaccineStatus, isDead, { from: App.account }); // Assuming `1` is the admin ID.
-      alert("Patient data updated successfully!");
-      App.render();
-    } catch (error) {
-      console.error("Error updating patient data:", error);
-      alert("Failed to update patient data.");
     }
   },
 };
