@@ -27966,12 +27966,12 @@
     "1337": {
       "events": {},
       "links": {},
-      "address": "0xd063A1436f3fC141679AdBFF637697802448023C",
-      "transactionHash": "0x2d4cbd2bb8fc1e5269a223b7d39f68a0dc2bc3a3fc2710ebc54648da893d6317"
+      "address": "0xdeadd974B50749581eD92d4768C802C750235715",
+      "transactionHash": "0xace657401e8ae8c327046bbc1394ac0ac2ca57744803ed6603d3f75f5467d874"
     }
   },
   "schemaVersion": "3.4.16",
-  "updatedAt": "2024-12-30T18:24:14.725Z",
+  "updatedAt": "2024-12-30T20:05:05.438Z",
   "networkType": "ethereum",
   "devdoc": {
     "kind": "dev",
